@@ -22,7 +22,8 @@ Usage:
 Note:
 
 Exome table should have the following columns (for whole exome just download RefSeq genes UCSC GB table):
-```#name``` ```chrom``` ```strand``` ```txStart``` ```txEnd``` ```cdsStart``` ```cdsEnd``` ```exonStarts``` ```exonEnds``` ```name2```
+
+```name``` ```chrom``` ```strand``` ```txStart``` ```txEnd``` ```cdsStart``` ```cdsEnd``` ```exonStarts``` ```exonEnds``` ```name2```
 
 2. VcfAnnot and MutectAnnot
 ===========================
@@ -42,4 +43,5 @@ Usage:
 Note:
 
 A bundle (134 Mb) with annotations should be downloaded from https://www.dropbox.com/s/q42rm9cdns9o5fx/vcf_annot_bundle.zip
+
 It should be either placed in script parent directory or specified during execution 
