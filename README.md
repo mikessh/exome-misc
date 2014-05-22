@@ -4,6 +4,14 @@ EXOME-misc
 
 Miscellaneous tools for exome-seq: annotating SNP, counting molecules on start, etc.
 
+To see the list of executable scripts run 
+
+>$java -jar exome-tools.jar
+
+To execute specific script run 
+
+>$java -cp exome-tools.jar script_name
+
 Description
 ===========
 
