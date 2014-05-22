@@ -1,4 +1,4 @@
-package annot.mutect
+package annot
 
 /**
  Copyright 2013 Mikhail Shugay (mikhail.shugay@gmail.com)
