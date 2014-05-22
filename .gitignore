@@ -1,0 +1,6 @@
+out/
+lib/
+.idea/
+*.groovy
+*.iml
+*.jar

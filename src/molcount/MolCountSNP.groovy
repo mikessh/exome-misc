@@ -1,10 +1,8 @@
 package molcount
 
-import net.sf.samtools.AlignmentBlock
-@Grapes(
-        @Grab(group = 'org.utgenome.thirdparty', module = 'picard', version = '1.86.0')
-)
+@Grab(group = 'org.utgenome.thirdparty', module = 'picard', version = '1.86.0')
 
+import net.sf.samtools.AlignmentBlock
 import net.sf.samtools.SAMFileReader
 import net.sf.samtools.SAMRecord
 

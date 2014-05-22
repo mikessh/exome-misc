@@ -34,7 +34,7 @@ boolean simple = !opt.e, outputUrl = opt.u, intersect = opt.i
 def vcfFiles = opt.arguments()[0].split(",").collect { new File(it) }
 def dataPath = opt.arguments().size() < 2 ? new File(getClass().protectionDomain.codeSource.location.path).parent.replaceAll("%20", " ") : opt.arguments()[1]
 
-class Alphabet {
+class MutectAlphabet {
     static char compl(char c) {
         switch (c) {
             case 'A': return 'T'
@@ -133,11 +133,11 @@ class Alphabet {
 
 // Pre-load refGene
 println "Pre-loading RefGene data"
-class GeneEntry {
+class MutectGeneEntry {
     String geneName, transcriptName
     String chr
     int start, end, cdsStart, cdsEnd
-    def exons = new ArrayList<ExonEntry>()
+    def exons = new ArrayList<MutectExonEntry>()
     def exonStarts = new ArrayList<Integer>(), exonEnds = new ArrayList<Integer>()
     def codingSequence = ""
     int strand
@@ -147,7 +147,7 @@ class GeneEntry {
         codingSequence = exons.collect { it.sequence }.join("")
     }
 
-    def getCodons(int coord, int exonId, VcfEntry vcfEntry) {
+    def getCodons(int coord, int exonId, MutectVcfEntry vcfEntry) {
         def tail = 0
         for (int i = 0; i < exonId; i++)
             tail += exons[i].length()
@@ -158,16 +158,16 @@ class GeneEntry {
         def ref, var
         ref = codingSequence.substring(codon, codon + 3)
         var = new StringBuilder(ref)
-        var.setCharAt(frame, strand > 0 ? (char) vcfEntry.var : Alphabet.compl((char) vcfEntry.var))
+        var.setCharAt(frame, strand > 0 ? (char) vcfEntry.var : MutectAlphabet.compl((char) vcfEntry.var))
 
         var = var.toString()
-        String aaref = Alphabet.translate(ref), aavar = Alphabet.translate(var)
+        String aaref = MutectAlphabet.translate(ref), aavar = MutectAlphabet.translate(var)
         return [ref, var, aaref + (codon / 3 + 1).toString() + aavar,
                 vcfEntry.var.length() > 1 ? (((vcfEntry.var.length() - vcfEntry.ref.length()) % 3 == 0) ? "Frameshift" : ".") :
                         ((aaref != aavar) ? "Missense" : ".")]
     }
 
-    def getSegment(VcfEntry vcfEntry) {
+    def getSegment(MutectVcfEntry vcfEntry) {
         def coord = vcfEntry.coord
 
         def eid = -1
@@ -191,7 +191,7 @@ class GeneEntry {
     }
 }
 
-class ExonEntry {
+class MutectExonEntry {
     int id
     int start, end
     String sequence
@@ -201,7 +201,7 @@ class ExonEntry {
     }
 }
 
-def geneMapByBin = new HashMap<String, List<GeneEntry>>(), geneMapByName = new HashMap<String, GeneEntry>()
+def geneMapByBin = new HashMap<String, List<MutectGeneEntry>>(), geneMapByName = new HashMap<String, MutectGeneEntry>()
 
 // Fetch gene coords
 // #name	chrom	strand	txStart	txEnd	cdsStart	cdsEnd	name2   exonStarts  exonEnds
@@ -211,7 +211,7 @@ new File(dataPath + "/refseq_coords.txt").splitEachLine("\t") {
         if (!splitLine[0].startsWith("#")) {
             def chrBinStart = splitLine[1] + ":" + (int) ((int) Integer.parseInt(splitLine[3]) / (int) BIN_SZ),
                 chrBinEnd = splitLine[1] + ":" + (int) ((int) Integer.parseInt(splitLine[4]) / (int) BIN_SZ)
-            def geneEntry = new GeneEntry(transcriptName: splitLine[0],
+            def geneEntry = new MutectGeneEntry(transcriptName: splitLine[0],
                     chr: splitLine[1], strand: splitLine[2] == "+" ? 1 : -1, start: Integer.parseInt(splitLine[3]), end: Integer.parseInt(splitLine[4]),
                     cdsStart: Integer.parseInt(splitLine[5]), cdsEnd: Integer.parseInt(splitLine[6]),
                     exonStarts: splitLine[7].split(",").collect { Integer.parseInt(it) }.asList(),
@@ -222,7 +222,7 @@ new File(dataPath + "/refseq_coords.txt").splitEachLine("\t") {
             [chrBinStart, chrBinEnd].each { bin ->
                 def geneList = geneMapByBin.get(bin)
                 if (geneList == null)
-                    geneList = new ArrayList<GeneEntry>()
+                    geneList = new ArrayList<MutectGeneEntry>()
                 geneList.add(geneEntry)
                 geneMapByBin.put(bin, geneList)
             }
@@ -241,7 +241,7 @@ while ((line = reader.readLine()) != null) {
         if (prevHeaderData != null) {
             def geneData = geneMapByName.get(prevHeaderData[1])
             if (geneData != null) {
-                geneData.exons.add(new ExonEntry(id: Integer.parseInt(prevHeaderData[2]),
+                geneData.exons.add(new MutectExonEntry(id: Integer.parseInt(prevHeaderData[2]),
                         start: Integer.parseInt(prevHeaderData[3]), end: Integer.parseInt(prevHeaderData[4]),
                         sequence: seq))
             }
@@ -262,7 +262,7 @@ geneMapByName.values().each {
 println "Of ${geneMapByName.values().size()} transcripts ${coding} are coding and will be used further"
 
 // Read in VCFs
-class VcfEntry {
+class MutectVcfEntry {
     String data, chrbin, chrcoord
     int coord
     String var, ref
@@ -281,7 +281,7 @@ def intersectionMaps = intersect ? vcfFiles.collect { file ->
 } : null
 
 vcfFiles.each { file ->
-    def vcfEntries = new HashMap<String, VcfEntry>()
+    def vcfEntries = new HashMap<String, MutectVcfEntry>()
     println "Reading MUTECT entries from $file.name"
     file.splitEachLine("\t") { splitLine ->
         if (!splitLine[0].startsWith("#") && splitLine[1].isDouble()) {
@@ -290,7 +290,7 @@ vcfFiles.each { file ->
 
                 def id = splitLine[0] + ":" + splitLine[1] + ":" + splitLine[3].toUpperCase() + ">" + splitLine[4].toUpperCase()
                 splitLine[4].split(",").each { var ->
-                    vcfEntries.put(id, new VcfEntry(data: data,
+                    vcfEntries.put(id, new MutectVcfEntry(data: data,
                             chrbin: splitLine[0] + ":" + (int) ((int) Integer.parseInt(splitLine[1]) / (int) BIN_SZ),
                             chrcoord: splitLine[0] + ":" + splitLine[1],
                             coord: Integer.parseInt(splitLine[1]),
@@ -306,7 +306,7 @@ vcfFiles.each { file ->
 
     def revId = { String id ->
         id.split(":").collect {
-            it.contains(">") ? it.split(">").collect { Alphabet.revCompl(it) }.join(">") : it
+            it.contains(">") ? it.split(">").collect { MutectAlphabet.revCompl(it) }.join(">") : it
         }.join(":")
     }
 
@@ -395,7 +395,7 @@ vcfFiles.each { file ->
                 def aaList = [], types = []
                 trSegPairs.each {
                     if (it[1][1] >= 0) {
-                        codons = (it[0] as GeneEntry).getCodons(vcfEntry.coord, it[1][1], vcfEntry)
+                        codons = (it[0] as MutectGeneEntry).getCodons(vcfEntry.coord, it[1][1], vcfEntry)
                         aaList.add(codons[2])
                         types.add(codons[3])
                     } else {
@@ -405,10 +405,10 @@ vcfFiles.each { file ->
                 }
                 codons[2] = aaList.join(';')
                 codons[3] = types.join(';')
-                def geneName = (trSegPairs[0][0] as GeneEntry).geneName
+                def geneName = (trSegPairs[0][0] as MutectGeneEntry).geneName
                 data = [geneName,
                         outputUrl ? "http://www.genecards.org/cgi-bin/carddisp.pl?gene=$geneName" : '.',
-                        trSegPairs.collect { (it[0] as GeneEntry).transcriptName }.join(";"),
+                        trSegPairs.collect { (it[0] as MutectGeneEntry).transcriptName }.join(";"),
                         trSegPairs.collect { it[1][0] }.join(";"),
                         trSegPairs.collect { it[1][2] }.join(";"),
                         codons,
